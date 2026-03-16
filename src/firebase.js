@@ -1,6 +1,8 @@
+// setup.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore} from "firebase/firestore";
 
+// Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC6BAKiFCcsuRTdMhOM3iI_3VVD4Zoq60M",
   authDomain: "attendance-8cb33.firebaseapp.com",
@@ -11,6 +13,6 @@ const firebaseConfig = {
   measurementId: "G-VFJCCYSRKH"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
 export const db = getFirestore(app);
