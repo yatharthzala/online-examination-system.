@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { quizAPI, userAPI, resultAPI } from "../api";
 import AdminNavbar from "../components/AdminNavbar";
 import "../App.css";
 
 function AdminDashboard() {
-  const [quizCount, setQuizCount] = useState(0);
+  const [quizCount, setQuizCount]       = useState(0);
   const [studentCount, setStudentCount] = useState(0);
-  const [attemptCount, setAttemptCount] = useState(0);
   const [recentResults, setRecentResults] = useState([]);
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -17,22 +15,18 @@ function AdminDashboard() {
   }, []);
 
   async function loadData() {
-    const quizzes = await getDocs(collection(db, "quizzes"));
-    setQuizCount(quizzes.size);
-
-    const users = await getDocs(collection(db, "users"));
-    let students = 0;
-    users.forEach((u) => {
-      if (u.data().role === "student") students++;
-    });
-    setStudentCount(students);
-
-    const results = await getDocs(collection(db, "results"));
-    setAttemptCount(results.size);
-
-    const list = [];
-    results.forEach((r) => list.push(r.data()));
-    setRecentResults(list.slice(0, 5));
+    try {
+      const [{ quizzes }, { users }, { results }] = await Promise.all([
+        quizAPI.getAll(),
+        userAPI.getAll(),
+        resultAPI.getAll(),
+      ]);
+      setQuizCount(quizzes.length);
+      setStudentCount(users.length);
+      setRecentResults(results.slice(0, 5));
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   const topStudents = [...recentResults]
@@ -44,18 +38,15 @@ function AdminDashboard() {
   return (
     <div className="dashboard-root">
       <AdminNavbar />
-
       <div className="dashboard-container">
-        {/* Header */}
         <div className="dashboard-header">
           <div>
             <h2 className="dashboard-title">Teacher Dashboard</h2>
-            <p className="dashboard-subtitle">Welcome back, <span>{user.username}</span></p>
+            <p className="dashboard-subtitle">Welcome back, <span>{user?.username}</span></p>
           </div>
           <div className="dashboard-badge">Admin</div>
         </div>
 
-        {/* Stats Cards */}
         <section className="stats-grid">
           <div className="stat-card stat-card--primary">
             <div className="stat-icon">📋</div>
@@ -74,14 +65,13 @@ function AdminDashboard() {
           <div className="stat-card stat-card--pale">
             <div className="stat-icon">⚡</div>
             <div className="stat-info">
-              <span className="stat-value">{attemptCount}</span>
+              <span className="stat-value">{recentResults.length}</span>
               <span className="stat-label">Total Attempts</span>
             </div>
           </div>
         </section>
 
         <div className="dashboard-grid">
-          {/* Recent Attempts */}
           <section className="dashboard-card">
             <h3 className="card-title">Recent Student Attempts</h3>
             {recentResults.length === 0 ? (
@@ -107,7 +97,6 @@ function AdminDashboard() {
             )}
           </section>
 
-          {/* Top Students */}
           <section className="dashboard-card">
             <h3 className="card-title">Top Students</h3>
             {topStudents.length === 0 ? (

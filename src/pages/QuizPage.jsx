@@ -1,15 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  doc,
-  getDoc,
-} from "firebase/firestore";
+import { quizAPI, questionAPI, resultAPI } from "../api";
 import StudentNavbar from "../components/StudentNavbar";
 import "../App.css";
 
@@ -17,32 +8,22 @@ function QuizPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState({});
-  const [quizName, setQuizName] = useState("");
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [questions, setQuestions]   = useState([]);
+  const [answers, setAnswers]       = useState({});
+  const [quizName, setQuizName]     = useState("");
+  const [timeLeft, setTimeLeft]     = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadQuiz();
-    loadQuestions();
-  }, []);
+    quizAPI.getOne(id).then(({ quiz }) => {
+      setQuizName(quiz.title);
+      setTimeLeft(quiz.timeLimit * 60);
+    }).catch(console.error);
 
-  async function loadQuiz() {
-    const quizDoc = await getDoc(doc(db, "quizzes", id));
-    if (quizDoc.exists()) {
-      setQuizName(quizDoc.data().title);
-      setTimeLeft(quizDoc.data().timeLimit * 60);
-    }
-  }
-
-  async function loadQuestions() {
-    const q = query(collection(db, "questions"), where("quizId", "==", id));
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push(d.data()));
-    setQuestions(list);
-  }
+    questionAPI.getByQuiz(id).then(({ questions }) => {
+      setQuestions(questions);
+    }).catch(console.error);
+  }, [id]);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -70,66 +51,55 @@ function QuizPage() {
 
     const user = JSON.parse(localStorage.getItem("user"));
 
-    await addDoc(collection(db, "results"), {
-      quizId: id,
-      quizName,
-      studentName: user.username,
-      studentId: user.studentId,
-      studentClass: user.class,
-      score,
-      total: questions.length,
-    });
+    try {
+      await resultAPI.submit({
+        quizId:       id,
+        quizName,
+        score,
+        total:        questions.length,
+        studentClass: user?.class || null,
+      });
+    } catch (err) {
+      console.error(err);
+    }
 
     navigate("/result", { state: { score, total: questions.length } });
   }
 
-  const answered = Object.keys(answers).length;
-  const pctDone = questions.length > 0 ? (answered / questions.length) * 100 : 0;
-
-  const mins = Math.floor(timeLeft / 60);
-  const secs = String(timeLeft % 60).padStart(2, "0");
+  const answered    = Object.keys(answers).length;
+  const pctDone     = questions.length > 0 ? (answered / questions.length) * 100 : 0;
+  const mins        = Math.floor(timeLeft / 60);
+  const secs        = String(timeLeft % 60).padStart(2, "0");
   const timerWarning = timeLeft <= 60 && timeLeft > 0;
-
   const optionLabels = ["A", "B", "C", "D"];
 
   return (
     <div className="dashboard-root">
       <StudentNavbar />
-
       <div className="dashboard-container">
-        {/* Header */}
         <div className="dashboard-header">
           <div>
             <h2 className="dashboard-title">{quizName}</h2>
-            <p className="dashboard-subtitle">
-              {answered} of {questions.length} answered
-            </p>
+            <p className="dashboard-subtitle">{answered} of {questions.length} answered</p>
           </div>
-
-          {/* Timer */}
           <div className={`qp-timer ${timerWarning ? "qp-timer--warn" : ""}`}>
             <span className="qp-timer-icon">⏱</span>
             {mins}:{secs}
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="qp-progress-bar">
           <div className="qp-progress-fill" style={{ width: `${pctDone}%` }} />
         </div>
 
-        {/* Questions */}
         <div className="questions-list">
           {questions.map((q, index) => (
-            <section className="dashboard-card question-card" key={index}>
+            <section className="dashboard-card question-card" key={q._id || index}>
               <div className="question-card-header">
                 <span className="question-number">Q{index + 1}</span>
                 <p className="qp-question-text">{q.question}</p>
-                {answers[index] !== undefined && (
-                  <span className="qp-answered-tick">✓</span>
-                )}
+                {answers[index] !== undefined && <span className="qp-answered-tick">✓</span>}
               </div>
-
               <div className="qp-options">
                 {q.options.map((opt, i) => (
                   <label
@@ -152,18 +122,13 @@ function QuizPage() {
           ))}
         </div>
 
-        {/* Submit */}
         <div className="form-actions">
           <p className="qp-submit-hint">
             {questions.length - answered > 0
               ? `${questions.length - answered} question${questions.length - answered !== 1 ? "s" : ""} unanswered`
               : "All questions answered!"}
           </p>
-          <button
-            className="btn btn--primary"
-            onClick={submitQuiz}
-            disabled={submitting}
-          >
+          <button className="btn btn--primary" onClick={submitQuiz} disabled={submitting}>
             {submitting ? "Submitting..." : "Submit Quiz 🚀"}
           </button>
         </div>

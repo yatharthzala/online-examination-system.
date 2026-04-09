@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { resultAPI } from "../api";
 import StudentNavbar from "../components/StudentNavbar";
 import "../App.css";
 
@@ -8,22 +7,10 @@ function StudentResults() {
   const [results, setResults] = useState([]);
 
   useEffect(() => {
-    loadResults();
+    resultAPI.getAll()
+      .then(({ results }) => setResults(results))
+      .catch(console.error);
   }, []);
-
-  async function loadResults() {
-    const user = JSON.parse(localStorage.getItem("user"));
-
-    const q = query(
-      collection(db, "results"),
-      where("studentName", "==", user.username)
-    );
-
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push(d.data()));
-    setResults(list);
-  }
 
   const getScoreColor = (score, total) => {
     const pct = (score / total) * 100;
@@ -42,9 +29,7 @@ function StudentResults() {
   return (
     <div className="dashboard-root">
       <StudentNavbar />
-
       <div className="dashboard-container">
-        {/* Header */}
         <div className="dashboard-header">
           <div>
             <h2 className="dashboard-title">My Results</h2>
@@ -55,7 +40,6 @@ function StudentResults() {
           <div className="dashboard-badge">Student</div>
         </div>
 
-        {/* Stats Row */}
         {results.length > 0 && (
           <div className="stats-grid">
             <div className="stat-card stat-card--primary">
@@ -69,10 +53,7 @@ function StudentResults() {
               <div className="stat-icon">⭐</div>
               <div className="stat-info">
                 <span className="stat-value">
-                  {Math.round(
-                    results.reduce((acc, r) => acc + (r.score / r.total) * 100, 0) /
-                      results.length
-                  )}%
+                  {Math.round(results.reduce((acc, r) => acc + (r.score / r.total) * 100, 0) / results.length)}%
                 </span>
                 <span className="stat-label">Avg Score</span>
               </div>
@@ -89,7 +70,6 @@ function StudentResults() {
           </div>
         )}
 
-        {/* Results List */}
         {results.length === 0 ? (
           <section className="dashboard-card">
             <p className="empty-state">You haven't attempted any quizzes yet.</p>
@@ -100,9 +80,7 @@ function StudentResults() {
             <ul className="results-list">
               {results.map((r, i) => (
                 <li className="result-item" key={i}>
-                  <div className="result-avatar sr-avatar">
-                    {r.quizName?.charAt(0).toUpperCase()}
-                  </div>
+                  <div className="result-avatar sr-avatar">{r.quizName?.charAt(0).toUpperCase()}</div>
                   <div className="result-info">
                     <span className="result-name">{r.quizName}</span>
                     <span className="result-meta">Class: {r.studentClass}</span>

@@ -1,56 +1,43 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { db } from "../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  addDoc,
-} from "firebase/firestore";
+import { questionAPI } from "../api";
 import AdminNavbar from "../components/AdminNavbar";
 import "../App.css";
 
 function EditQuestions() {
   const { id } = useParams();
   const [questions, setQuestions] = useState([]);
-  const [saved, setSaved] = useState({});
+  const [saved, setSaved]         = useState({});
 
-  useEffect(() => {
-    loadQuestions();
-  }, []);
+  useEffect(() => { loadQuestions(); }, []);
 
   async function loadQuestions() {
-    const q = query(collection(db, "questions"), where("quizId", "==", id));
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-    setQuestions(list);
+    try {
+      const { questions } = await questionAPI.getByQuiz(id);
+      setQuestions(questions);
+    } catch (err) { console.error(err); }
   }
 
   async function updateQuestion(q) {
-    await updateDoc(doc(db, "questions", q.id), {
-      question: q.question,
-      options: q.options,
+    await questionAPI.update(q._id, {
+      question:      q.question,
+      options:       q.options,
       correctAnswer: Number(q.correctAnswer),
     });
-    setSaved((prev) => ({ ...prev, [q.id]: true }));
-    setTimeout(() => setSaved((prev) => ({ ...prev, [q.id]: false })), 2000);
+    setSaved((prev) => ({ ...prev, [q._id]: true }));
+    setTimeout(() => setSaved((prev) => ({ ...prev, [q._id]: false })), 2000);
   }
 
   async function deleteQuestion(qid) {
-    await deleteDoc(doc(db, "questions", qid));
+    await questionAPI.remove(qid);
     loadQuestions();
   }
 
   async function addQuestion() {
-    await addDoc(collection(db, "questions"), {
-      quizId: id,
-      question: "New Question",
-      options: ["Option 1", "Option 2", "Option 3", "Option 4"],
+    await questionAPI.create({
+      quizId:        id,
+      question:      "New Question",
+      options:       ["Option 1", "Option 2", "Option 3", "Option 4"],
       correctAnswer: 0,
     });
     loadQuestions();
@@ -79,9 +66,7 @@ function EditQuestions() {
   return (
     <div className="dashboard-root">
       <AdminNavbar />
-
       <div className="dashboard-container">
-        {/* Header */}
         <div className="dashboard-header">
           <div>
             <h2 className="dashboard-title">Edit Questions</h2>
@@ -89,12 +74,9 @@ function EditQuestions() {
               {questions.length} question{questions.length !== 1 ? "s" : ""} in this quiz
             </p>
           </div>
-          <button className="btn btn--primary" onClick={addQuestion}>
-            + Add Question
-          </button>
+          <button className="btn btn--primary" onClick={addQuestion}>+ Add Question</button>
         </div>
 
-        {/* Questions */}
         {questions.length === 0 ? (
           <section className="dashboard-card">
             <p className="empty-state">No questions yet. Add one to get started.</p>
@@ -102,29 +84,18 @@ function EditQuestions() {
         ) : (
           <div className="questions-list">
             {questions.map((q, index) => (
-              <section className="dashboard-card question-card" key={q.id}>
-                {/* Question Header */}
+              <section className="dashboard-card question-card" key={q._id}>
                 <div className="question-card-header">
                   <span className="question-number">Q{index + 1}</span>
                   <h3 className="card-title" style={{ flex: 1 }}>Question</h3>
-                  <button
-                    className="btn-icon btn-icon--danger"
-                    onClick={() => deleteQuestion(q.id)}
-                    title="Delete question"
-                  >
-                    🗑️
-                  </button>
+                  <button className="btn-icon btn-icon--danger" onClick={() => deleteQuestion(q._id)}>🗑️</button>
                 </div>
-
-                {/* Question Text */}
                 <input
                   className="form-input"
                   value={q.question}
                   onChange={(e) => updateText(index, e.target.value)}
                   placeholder="Enter question text..."
                 />
-
-                {/* Options */}
                 <div className="options-grid">
                   {q.options.map((opt, i) => (
                     <div className="option-row" key={i}>
@@ -138,8 +109,6 @@ function EditQuestions() {
                     </div>
                   ))}
                 </div>
-
-                {/* Correct Answer */}
                 <div className="correct-row">
                   <label className="form-label">Correct Answer</label>
                   <div className="correct-options">
@@ -148,21 +117,15 @@ function EditQuestions() {
                         key={i}
                         className={`correct-btn ${Number(q.correctAnswer) === i ? "correct-btn--active" : ""}`}
                         onClick={() => updateCorrect(index, i)}
-                      >
-                        {label}
-                      </button>
+                      >{label}</button>
                     ))}
                   </div>
                 </div>
-
-                {/* Save */}
                 <div className="question-footer">
                   <button
-                    className={`btn btn--sm ${saved[q.id] ? "btn--saved" : "btn--primary"}`}
+                    className={`btn btn--sm ${saved[q._id] ? "btn--saved" : "btn--primary"}`}
                     onClick={() => updateQuestion(q)}
-                  >
-                    {saved[q.id] ? "✓ Saved" : "Save Question"}
-                  </button>
+                  >{saved[q._id] ? "✓ Saved" : "Save Question"}</button>
                 </div>
               </section>
             ))}

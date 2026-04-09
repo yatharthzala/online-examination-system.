@@ -1,7 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { resultAPI } from "../api";
 import AdminNavbar from "../components/AdminNavbar";
 import "../App.css";
 
@@ -10,16 +9,10 @@ function QuizResults() {
   const [results, setResults] = useState([]);
 
   useEffect(() => {
-    loadResults();
-  }, []);
-
-  async function loadResults() {
-    const q = query(collection(db, "results"), where("quizId", "==", id));
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((d) => list.push(d.data()));
-    setResults(list);
-  }
+    resultAPI.getByQuiz(id)
+      .then(({ results }) => setResults(results))
+      .catch(console.error);
+  }, [id]);
 
   const getScoreColor = (score, total) => {
     const pct = (score / total) * 100;
@@ -38,7 +31,6 @@ function QuizResults() {
   return (
     <div className="dashboard-root">
       <AdminNavbar />
-
       <div className="dashboard-container">
         <div className="dashboard-header">
           <div>
@@ -60,14 +52,10 @@ function QuizResults() {
             <ul className="results-list">
               {results.map((r, i) => (
                 <li className="result-item" key={i}>
-                  <div className="result-avatar">
-                    {r.studentName?.charAt(0).toUpperCase()}
-                  </div>
+                  <div className="result-avatar">{r.studentName?.charAt(0).toUpperCase()}</div>
                   <div className="result-info">
                     <span className="result-name">{r.studentName}</span>
-                    <span className="result-meta">
-                      ID: {r.studentId} &nbsp;·&nbsp; Class: {r.studentClass}
-                    </span>
+                    <span className="result-meta">Class: {r.studentClass}</span>
                   </div>
                   <div className="sr-right">
                     <span className={`sr-label ${getScoreColor(r.score, r.total)}`}>

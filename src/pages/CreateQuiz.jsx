@@ -1,22 +1,17 @@
 import { useState } from "react";
-import { db } from "../firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { quizAPI } from "../api";
 import AdminNavbar from "../components/AdminNavbar";
 import "../App.css";
 
 function CreateQuiz() {
-  const [title, setTitle] = useState("");
+  const [title, setTitle]       = useState("");
   const [timeLimit, setTimeLimit] = useState("");
-
   const [questions, setQuestions] = useState([
     { question: "", options: ["", "", "", ""], correctAnswer: 0 },
   ]);
 
   function addQuestion() {
-    setQuestions([
-      ...questions,
-      { question: "", options: ["", "", "", ""], correctAnswer: 0 },
-    ]);
+    setQuestions([...questions, { question: "", options: ["", "", "", ""], correctAnswer: 0 }]);
   }
 
   function updateQuestion(index, value) {
@@ -43,24 +38,23 @@ function CreateQuiz() {
   }
 
   async function createQuiz() {
-    const quizRef = await addDoc(collection(db, "quizzes"), {
-      title,
-      timeLimit: Number(timeLimit),
-      visible: true,
-    });
-
-    const quizId = quizRef.id;
-
-    for (let q of questions) {
-      await addDoc(collection(db, "questions"), {
-        quizId,
-        question: q.question,
-        options: q.options,
-        correctAnswer: Number(q.correctAnswer),
+    try {
+      await quizAPI.create({
+        title,
+        timeLimit: Number(timeLimit),
+        questions: questions.map((q) => ({
+          question:      q.question,
+          options:       q.options,
+          correctAnswer: Number(q.correctAnswer),
+        })),
       });
+      alert("Quiz Created!");
+      setTitle("");
+      setTimeLimit("");
+      setQuestions([{ question: "", options: ["", "", "", ""], correctAnswer: 0 }]);
+    } catch (err) {
+      alert("Error: " + err.message);
     }
-
-    alert("Quiz Created");
   }
 
   const optionLabels = ["A", "B", "C", "D"];
@@ -68,9 +62,7 @@ function CreateQuiz() {
   return (
     <div className="dashboard-root">
       <AdminNavbar />
-
       <div className="dashboard-container">
-        {/* Header */}
         <div className="dashboard-header">
           <div>
             <h2 className="dashboard-title">Create Quiz</h2>
@@ -79,7 +71,6 @@ function CreateQuiz() {
           <div className="dashboard-badge">New Quiz</div>
         </div>
 
-        {/* Quiz Info Card */}
         <section className="dashboard-card">
           <h3 className="card-title">Quiz Details</h3>
           <div className="form-row">
@@ -104,7 +95,6 @@ function CreateQuiz() {
           </div>
         </section>
 
-        {/* Questions */}
         <div className="questions-list">
           {questions.map((q, index) => (
             <section className="dashboard-card question-card" key={index}>
@@ -112,23 +102,15 @@ function CreateQuiz() {
                 <span className="question-number">Q{index + 1}</span>
                 <h3 className="card-title" style={{ flex: 1 }}>Question</h3>
                 {questions.length > 1 && (
-                  <button
-                    className="btn-icon btn-icon--danger"
-                    onClick={() => removeQuestion(index)}
-                    title="Remove question"
-                  >
-                    ✕
-                  </button>
+                  <button className="btn-icon btn-icon--danger" onClick={() => removeQuestion(index)}>✕</button>
                 )}
               </div>
-
               <input
                 className="form-input"
                 placeholder="Enter your question here..."
                 value={q.question}
                 onChange={(e) => updateQuestion(index, e.target.value)}
               />
-
               <div className="options-grid">
                 {q.options.map((opt, i) => (
                   <div className="option-row" key={i}>
@@ -142,7 +124,6 @@ function CreateQuiz() {
                   </div>
                 ))}
               </div>
-
               <div className="correct-row">
                 <label className="form-label">Correct Answer</label>
                 <div className="correct-options">
@@ -151,9 +132,7 @@ function CreateQuiz() {
                       key={i}
                       className={`correct-btn ${Number(q.correctAnswer) === i ? "correct-btn--active" : ""}`}
                       onClick={() => updateCorrect(index, i)}
-                    >
-                      {label}
-                    </button>
+                    >{label}</button>
                   ))}
                 </div>
               </div>
@@ -161,14 +140,9 @@ function CreateQuiz() {
           ))}
         </div>
 
-        {/* Actions */}
         <div className="form-actions">
-          <button className="btn btn--outline" onClick={addQuestion}>
-            + Add Question
-          </button>
-          <button className="btn btn--primary" onClick={createQuiz}>
-            🚀 Create Quiz
-          </button>
+          <button className="btn btn--outline" onClick={addQuestion}>+ Add Question</button>
+          <button className="btn btn--primary" onClick={createQuiz}>🚀 Create Quiz</button>
         </div>
       </div>
     </div>

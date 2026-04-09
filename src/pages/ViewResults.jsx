@@ -1,35 +1,25 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { quizAPI, resultAPI } from "../api";
 import AdminNavbar from "../components/AdminNavbar";
 import "../App.css";
 
 function ViewResults() {
-  const [quizzes, setQuizzes] = useState([]);
-  const [results, setResults] = useState([]);
-  const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [quizzes, setQuizzes]               = useState([]);
+  const [results, setResults]               = useState([]);
+  const [selectedQuiz, setSelectedQuiz]     = useState(null);
   const [selectedQuizTitle, setSelectedQuizTitle] = useState("");
 
   useEffect(() => {
-    loadQuizzes();
+    quizAPI.getAll().then(({ quizzes }) => setQuizzes(quizzes)).catch(console.error);
   }, []);
-
-  async function loadQuizzes() {
-    const snap = await getDocs(collection(db, "quizzes"));
-    const list = [];
-    snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-    setQuizzes(list);
-  }
 
   async function showResults(quizId, quizTitle) {
     setSelectedQuiz(quizId);
     setSelectedQuizTitle(quizTitle);
-
-    const q = query(collection(db, "results"), where("quizId", "==", quizId));
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach((doc) => list.push(doc.data()));
-    setResults(list);
+    try {
+      const { results } = await resultAPI.getByQuiz(quizId);
+      setResults(results);
+    } catch (err) { console.error(err); }
   }
 
   function goBack() {
@@ -48,10 +38,8 @@ function ViewResults() {
   return (
     <div className="dashboard-root">
       <AdminNavbar />
-
       <div className="dashboard-container">
 
-        {/* Quiz List View */}
         {selectedQuiz === null && (
           <>
             <div className="dashboard-header">
@@ -69,19 +57,16 @@ function ViewResults() {
             ) : (
               <div className="quiz-list">
                 {quizzes.map((q) => (
-                  <section className="dashboard-card quiz-card" key={q.id}>
+                  <section className="dashboard-card quiz-card" key={q._id}>
                     <div className="quiz-card-left">
                       <div className="quiz-icon">📊</div>
                       <div className="quiz-meta">
                         <h3 className="quiz-name">{q.title}</h3>
-                        <span className="quiz-id">ID: {q.id}</span>
+                        <span className="quiz-id">ID: {q._id}</span>
                       </div>
                     </div>
                     <div className="quiz-card-right">
-                      <button
-                        className="btn btn--primary btn--sm"
-                        onClick={() => showResults(q.id, q.title)}
-                      >
+                      <button className="btn btn--primary btn--sm" onClick={() => showResults(q._id, q.title)}>
                         View Results →
                       </button>
                     </div>
@@ -92,7 +77,6 @@ function ViewResults() {
           </>
         )}
 
-        {/* Results Detail View */}
         {selectedQuiz !== null && (
           <>
             <div className="dashboard-header">
@@ -102,9 +86,7 @@ function ViewResults() {
                   {results.length} student{results.length !== 1 ? "s" : ""} attempted this quiz
                 </p>
               </div>
-              <button className="btn btn--outline" onClick={goBack}>
-                ← Back
-              </button>
+              <button className="btn btn--outline" onClick={goBack}>← Back</button>
             </div>
 
             {results.length === 0 ? (
@@ -117,14 +99,10 @@ function ViewResults() {
                 <ul className="results-list">
                   {results.map((r, i) => (
                     <li className="result-item" key={i}>
-                      <div className="result-avatar">
-                        {r.studentName?.charAt(0).toUpperCase()}
-                      </div>
+                      <div className="result-avatar">{r.studentName?.charAt(0).toUpperCase()}</div>
                       <div className="result-info">
                         <span className="result-name">{r.studentName}</span>
-                        <span className="result-meta">
-                          ID: {r.studentId} &nbsp;·&nbsp; Class: {r.studentClass}
-                        </span>
+                        <span className="result-meta">Class: {r.studentClass}</span>
                       </div>
                       <div className={`result-score ${getScoreColor(r.score, r.total)}`}>
                         <span className="result-score-num">{r.score}</span>
@@ -137,7 +115,6 @@ function ViewResults() {
             )}
           </>
         )}
-
       </div>
     </div>
   );
